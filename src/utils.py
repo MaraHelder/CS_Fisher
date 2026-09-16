@@ -24,6 +24,8 @@ def names_to_latex(parameter_name, dollar_signs=True):
         latex_name = r'A_\mathrm{IA}'
     elif parameter_name == 'eta':
         latex_name = r'\eta'
+    elif parameter_name == 'a1h':
+        latex_name = r'a_\mathrm{1h}'
     elif parameter_name == 'logT_AGN':
         latex_name = r'\log T_\mathrm{AGN}'
 

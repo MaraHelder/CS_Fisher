@@ -38,7 +38,7 @@ def load_config(config_file):
 
     # Check for IA and baryons in the config file.
     if 'IA' not in config.keys():
-        config['IA'] = {'A_IA': None}
+        config['IA'] = {'A_IA': None, 'a1h': None}
     if 'baryons' not in config.keys():
         config['baryons'] = {'logT_AGN': None}
     config.update(baryons_dictionary(config))
