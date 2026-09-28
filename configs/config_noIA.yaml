@@ -1,4 +1,4 @@
-name: low_baryons
+name: noIA
 
 paths:
     # Add below the directory of the project.
@@ -19,12 +19,10 @@ cosmology:
     wa: 0
 
 baryons:
-#    logT_AGN: 8.
-    logT_AGN: 7.
+    logT_AGN:
 
 IA:
     A_IA:
-    a1h:
     eta:
 
 derivatives:
@@ -38,7 +36,7 @@ derivatives:
         n_s: 0.03
         w0: #0.003
         wa: #0.007
-        logT_AGN: 0.03
+        logT_AGN:
         A_IA:
         delta_z: 0.01
 

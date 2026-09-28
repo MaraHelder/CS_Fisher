@@ -30,16 +30,16 @@ derivatives:
     validation: [Omega_m, A_s]
     stencil_points: 5
     step_size:
-        Omega_m: 0.003
-        Omega_b:
-        h:
-        A_s: 0.002
-        n_s:
-        w0: 0.002
-        wa:
-        logT_AGN: 0.002
+        Omega_m: 0.02
+        Omega_b: 0.01
+        h: 0.01
+        A_s: 0.03
+        n_s: 0.03
+        w0: #0.003
+        wa: #0.007
+        logT_AGN: 0.03
         A_IA:
-        delta_z:
+        delta_z: 0.01
 
 ell_binning:
     cosmic_shear:
@@ -59,12 +59,12 @@ forecast:
 
 sampling_validation:
     Omega_m: [0.1, 0.9]
-    Omega_b:
-    h:
+    Omega_b: [0.001, 0.3]
+    h: [0.4, 1.1]
     A_s: [0.5, 5.]
-    n_s:
-    w0: [-3., 0.]
+    n_s: [0.7, 1.3]
+    w0:
     wa:
     logT_AGN:
     A_IA:
-    delta_z:
+    delta_z: yes

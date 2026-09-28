@@ -67,12 +67,12 @@ def get_Cell_data_vector(cosmo: ccl.Cosmology,
 
 
 def get_nt_nz(c_ells: dict) -> (int, int):
-    '''
+    """
     Returns the number of redshift bins, given a C_ell's dictionary.
 
     Args:
         c_ells (dict): A dictionary obtained with ```get_Cell_data_vector```.
-    '''
+    """
     tracer_combinations = list(c_ells.keys())
     # FIXME: This doesn't work for more than 10 bins!
     n_zbins = len(np.unique([x[1] for x in tracer_combinations]))
@@ -247,13 +247,13 @@ def compute_d_Cells(n_points: int,
                 cosmo_in_dict.pop('Omega_m')
 
             # Define the IA input parameters
-            A_IA_in = param_in[np.in1d(params_name, 'A_IA')][0]
-            eta_in = param_in[np.in1d(params_name, 'eta')][0]
-            a1h_in = param_in[np.in1d(params_name, 'a1h')][0]
+            A_IA_in = param_in[np.isin(params_name, 'A_IA')][0]
+            eta_in = param_in[np.isin(params_name, 'eta')][0]
+            a1h_in = param_in[np.isin(params_name, 'a1h')][0]
 
             # Define the baryon feedback parameters
             try:
-                logT_AGN_in = param_in[np.in1d(params_name, 'logT_AGN')][0]
+                logT_AGN_in = param_in[np.isin(params_name, 'logT_AGN')][0]
                 if logT_AGN_in is not None:
                     baryons_dict = {"kmax": 20.0,
                                    "halofit_version": "mead2020_feedback",
@@ -269,6 +269,7 @@ def compute_d_Cells(n_points: int,
                 shifted_bin = pi-(len(params_fiducial)-N_z_bins)
                 interp_dndz = interp1d(z, dndz_use[shifted_bin], bounds_error=False, fill_value=0)
                 dndz_in[shifted_bin] = interp_dndz(z + delta_z_in)
+                dndz_in[shifted_bin] /= np.trapezoid(dndz_in[shifted_bin], z+delta_z_in)
 
             cosmo_in = ccl.Cosmology(**cosmo_in_dict,
                                      matter_power_spectrum='camb',
@@ -344,9 +345,9 @@ class fisher_matrix(object):
                all(s in self.astro_params for s in ['name', 'fiducial']) and \
                all(s in self.redshift_params for s in ['name', 'fiducial'])
 
-        self.A_IA = np.array(self.astro_params['fiducial'])[np.in1d(self.astro_params['name'], 'A_IA')][0]
-        self.a1h = np.array(self.astro_params['fiducial'])[np.in1d(self.astro_params['name'], 'a1h')][0]
-        self.eta = np.array(self.astro_params['fiducial'])[np.in1d(self.astro_params['name'], 'eta')][0]
+        self.A_IA = np.array(self.astro_params['fiducial'])[np.isin(self.astro_params['name'], 'A_IA')][0]
+        self.a1h = np.array(self.astro_params['fiducial'])[np.isin(self.astro_params['name'], 'a1h')][0]
+        self.eta = np.array(self.astro_params['fiducial'])[np.isin(self.astro_params['name'], 'eta')][0]
         for param_dict in [self.cosmo_params, self.astro_params, self.redshift_params]:
             if 'latex' not in param_dict:
                 param_dict['latex'] = param_dict['name']
@@ -394,18 +395,18 @@ class fisher_matrix(object):
         assert all(s in self.parameters for s in keys_in), \
             f'Parameter is not in the Fisher matrix list of parameters.'
 
-        keys_indices = np.arange(len(self.parameters))[np.in1d(self.parameters, keys_in)]
+        keys_indices = np.arange(len(self.parameters))[np.isin(self.parameters, keys_in)]
         return self.fisher_matrix[np.ix_(keys_indices, keys_indices)]
 
     def fix_parameters(self, parameters):
         parameters_in = np.atleast_1d(parameters)
         assert all(s in self.parameters for s in parameters_in)
-        keys_indices = np.arange(len(self.parameters))[~np.in1d(self.parameters, parameters_in)]
+        keys_indices = np.arange(len(self.parameters))[~np.isin(self.parameters, parameters_in)]
 
         ret = self.copy()
         ret.fisher_matrix = self.fisher_matrix[np.ix_(keys_indices, keys_indices)]
         ret.covariance = np.linalg.inv(ret.fisher_matrix)
-        ret.d_C_ell = ret.d_C_ell[:, keys_indices, :]
+        #ret.d_C_ell = ret.d_C_ell[:, keys_indices, :]
 
         ret.parameters = ret.parameters[keys_indices]
         ret.fiducial_parameters = ret.fiducial_parameters[keys_indices]
@@ -440,12 +441,12 @@ class fisher_matrix(object):
                 of the prior.
         """
         parameters_ = np.atleast_1d(parameters)
-        if not np.any(np.in1d(parameters_, self.parameters)):
+        if not np.any(np.isin(parameters_, self.parameters)):
             return
         sigma_parameters_ = np.atleast_1d(sigma_parameters)
         assert len(parameters_) == len(sigma_parameters_)
         for i, param in enumerate(parameters_):
-            param_id = np.in1d(self.parameters, param)
+            param_id = np.isin(self.parameters, param)
             self.fisher_matrix[param_id, param_id] += 1./sigma_parameters_[i]**2
         self.covariance = np.linalg.inv(self.fisher_matrix)
         self.priors = [parameters_, sigma_parameters_]
@@ -459,7 +460,7 @@ class fisher_matrix(object):
                 covariance will be computed.
         """
         # FIXME: This returns the matrix with parameters sorted.
-        param_indices = np.arange(len(self.parameters))[np.in1d(self.parameters, parameters)]
+        param_indices = np.arange(len(self.parameters))[np.isin(self.parameters, parameters)]
         return self.covariance[np.ix_(param_indices, param_indices)]
 
     def transform_fisher_matrix(self, jacobian: np.ndarray, param_old: str,
@@ -470,7 +471,7 @@ class fisher_matrix(object):
         ret.fisher_matrix = np.dot(np.dot(jacobian.T, self.fisher_matrix), jacobian)
         ret.covariance = np.linalg.inv(ret.fisher_matrix)
 
-        param_idx = np.arange(self.dim)[np.in1d(self.parameters, param_old)]
+        param_idx = np.arange(self.dim)[np.isin(self.parameters, param_old)]
         ret.parameters[param_idx] = param_new
         ret.fiducial_parameters[param_idx] = param_new_value
         ret.latex_parameters[param_idx] = names_to_latex(param_new)
@@ -491,7 +492,7 @@ class fisher_matrix(object):
 
         # we computed partial derivatives d sig8/d cosmo_params but we need d cosmo_params/d sig8.
         # For that, we need the inverse Jacobian.
-        A_s_idx = np.arange(self.dim)[np.in1d(self.parameters, 'A_s')]
+        A_s_idx = np.arange(self.dim)[np.isin(self.parameters, 'A_s')]
         M = np.identity(self.dim)
         for ip, p in enumerate(self.parameters):
             if p in self.cosmo_params['name']:
@@ -510,8 +511,8 @@ class fisher_matrix(object):
         # In general, d S8/ d theta = S8/sigma8 d sigma8/d theta
         # But d S8/d Omega_m += sigma8/(0.6*S8)
         # Then, we need the inverse Jacobian.
-        Omega_m_idx = np.arange(self.dim)[np.in1d(self.parameters, 'Omega_m')]
-        A_s_idx = np.arange(self.dim)[np.in1d(self.parameters, 'A_s')]
+        Omega_m_idx = np.arange(self.dim)[np.isin(self.parameters, 'Omega_m')]
+        A_s_idx = np.arange(self.dim)[np.isin(self.parameters, 'A_s')]
         sigma8 = self.cosmo.sigma8().astype(float)
         Omega_m = self.fiducial_parameters[Omega_m_idx].astype(float)
         S8 = (Omega_m/0.3)**0.5 * sigma8
@@ -519,15 +520,15 @@ class fisher_matrix(object):
         M = np.identity(self.dim)
         for ip, p in enumerate(self.parameters):
             if p in self.cosmo_params['name']:
-                M[ip, A_s_idx] = S8 / sigma8 * dsig8[p]
-        M[Omega_m_idx, A_s_idx] += sigma8**2/(0.6*S8)
+                M[A_s_idx, ip] = S8 / sigma8 * dsig8[p]
+        M[A_s_idx, Omega_m_idx] += sigma8**2/(0.6*S8)
         M = np.linalg.inv(M)
 
         return self.transform_fisher_matrix(M, 'A_s', 'S8', S8[0])
 
     def transform_A_s_to_m9A_s(self):
         M = np.identity(self.dim)
-        A_s_idx = np.arange(self.dim)[np.in1d(self.parameters, 'A_s')]
+        A_s_idx = np.arange(self.dim)[np.isin(self.parameters, 'A_s')]
         M[A_s_idx, A_s_idx] = 1.e-9
 
         return self.transform_fisher_matrix(M, 'A_s', 'A_s_9',
@@ -535,7 +536,7 @@ class fisher_matrix(object):
 
     def transform_A_s_to_logA_s(self):
         M = np.identity(self.dim)
-        A_s_idx = np.arange(self.dim)[np.in1d(self.parameters, 'A_s')]
+        A_s_idx = np.arange(self.dim)[np.isin(self.parameters, 'A_s')]
         M[A_s_idx, A_s_idx] = np.log(10) * self.fiducial_parameters[A_s_idx]
 
         return self.transform_fisher_matrix(M, 'A_s', 'logA_s',
@@ -586,8 +587,8 @@ class fisher_matrix(object):
         C = self.marginalised_covariance(parameters)
         if mu is None:
             # FIXME: These returns parameters sorted.
-            mu = self.fiducial_parameters[np.in1d(self.parameters, parameters)]
-        latex = self.latex_parameters[np.in1d(self.parameters, parameters)]
+            mu = self.fiducial_parameters[np.isin(self.parameters, parameters)]
+        latex = self.latex_parameters[np.isin(self.parameters, parameters)]
         # Below we have 128 bit float numbers for precision when using A_s
         a = C[0, 0].astype(np.float64)  # sigma_x^2
         b = C[0, 1].astype(np.float64)  # sigma_xy
@@ -656,7 +657,7 @@ class fisher_matrix(object):
                 for param_dict in [cosmo_params_shift, astro_params_shift, redshift_params_shift]:
                     param_dict['shift'] = [None]*len(param_dict['name'])
                     if p in param_dict['name']:
-                        pi_where = np.in1d(param_dict['name'], p).nonzero()[0][0]
+                        pi_where = np.isin(param_dict['name'], p).nonzero()[0][0]
                         param_dict['shift'][pi_where] = shift
                 try:
                     d_Cell_shift = compute_d_Cells(self.n_points,

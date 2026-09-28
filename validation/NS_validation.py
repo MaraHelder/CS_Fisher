@@ -118,7 +118,7 @@ scale_z = config.redshift_distributions.sources.sigma_delta_z*(1+mean_z)
 fm.add_prior(redshift_params['name'], scale_z)
 
 print(f'Writing output.')
-IO.save_fisher_matrix(config, fm, 'fm_sampling_validation')
+IO.save_fisher_matrix(config, fm, 'fisher_matrix')
 
 # Compute the theory data and covariance
 C_ell_vec = fm.C_ell
@@ -152,10 +152,9 @@ if args.biased_config is not None:
 # Likelihood
 def likelihood(param_dict):
     cosmo_in_dict = config.cosmology.copy()
-    # These three: if set from fm, cannot run bias analysis.
     bayrons_dict_in = config.baryons_dict.copy()
-    A_IA_in = fm.A_IA
-    eta_in = fm.eta
+    A_IA_in = config.IA.A_IA
+    eta_in = config.IA.eta
     dndz_in = nz_arr
 
     for ip, p in enumerate(config.sampling_validation.keys()):
@@ -184,7 +183,7 @@ def likelihood(param_dict):
             raise ValueError(f'Input sampling parameter in config file had problem: {p}.')
 
     if cosmo_in_dict['w0']+cosmo_in_dict['wa'] > 0:
-        return -np.inf
+        return -np.inf, -np.inf
     if 'Omega_m' in cosmo_in_dict.keys():
         cosmo_in_dict['Omega_c'] = cosmo_in_dict['Omega_m'] - cosmo_in_dict['Omega_b']
         cosmo_in_dict.pop('Omega_m')
@@ -195,11 +194,13 @@ def likelihood(param_dict):
                                  extra_parameters={"camb": bayrons_dict_in})
         model = fisher.get_Cell_data_vector(cosmo_in, z_arr, dndz_in, A_IA_in, eta=eta_in, ell=ell_arr)
         model = np.array(list(model.values())).flatten()
+        sigma8 = cosmo_in.sigma8()
+        S8 = sigma8 * np.sqrt(cosmo_in['Omega_m']/0.3)
         #return multivariate_normal.logpdf(model, mean=data, cov=cov)
-        return -0.5 * np.dot(np.dot(data-model, invcov), data-model)
+        return -0.5 * np.dot(np.dot(data-model, invcov), data-model), S8
     except:
         print(f'Problem with parameters: {param_dict.values()}')
-        return -np.inf
+        return -np.inf, -np.inf
 
 
 if __name__ == '__main__':
@@ -213,6 +214,7 @@ if __name__ == '__main__':
     except: pool_type = None
 
     sampler = Sampler(prior, likelihood,
+                      blobs_dtype=[("S8", float)],
                       filepath=filename, resume=resume,
                       n_live=n_live_points,
                       pool=pool_type)

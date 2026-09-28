@@ -71,7 +71,7 @@ def main(config):
 
     # Fisher matrix validation
     print(f'Producing fisher matrix validation plot.')
-    shifts = np.geomspace(1e-3, 1e-2, 16)
+    shifts = np.geomspace(1e-3, 1e-1, 32)
     FoM_parameters = config.derivatives.validation
     FoM_validation = fm.validate_fisher_matrix(shifts, FoM_parameters)
 
