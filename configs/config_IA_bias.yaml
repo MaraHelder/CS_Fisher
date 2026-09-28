@@ -22,7 +22,7 @@ baryons:
     logT_AGN:
 
 IA:
-    A_IA: 0.2
+    A_IA: 1.
     eta:
 
 derivatives:
