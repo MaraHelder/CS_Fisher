@@ -1,0 +1,69 @@
+name: IA
+
+paths:
+    # Add below the directory of the project.
+    # Rest of the paths are relative but might need to be changed for specific cases.
+    project: &projectpath /Users/cgeorgiou/PycharmProjects/CS_Fisher
+    output:
+        fisher_matrix: !join [*projectpath, output]
+        figures: !join [*projectpath, figures]
+
+cosmology:
+    Omega_m: 0.315
+    Omega_b: 0.049
+    h: 0.674
+    #sigma8: 0.811
+    A_s: 2.0989e-9
+    n_s: 0.965
+    w0: -1
+    wa: 0
+
+baryons:
+    logT_AGN:
+
+IA:
+    A_IA:
+    eta:
+
+derivatives:
+    validation: [Omega_m, A_s]
+    stencil_points: 5
+    step_size:
+        Omega_m: 0.02
+        Omega_b: 0.01
+        h: 0.01
+        A_s: 0.03
+        n_s: 0.03
+        w0: #0.003
+        wa: #0.007
+        logT_AGN:
+        A_IA:
+        delta_z: 0.01
+
+ell_binning:
+    cosmic_shear:
+        bin_start: 20
+        bin_end: 15001
+        N_bins: 20
+        ell_min: 100
+        ell_max: 2000
+
+forecast:
+    fsky: 0.4
+    e_rms: 0.26
+    year: 1
+    z_min: 0.1
+    z_max: 4.
+    N_z_values: 400
+
+sampling_validation:
+    Omega_m: [0.1, 0.9]
+    Omega_b: [0.001, 0.3]
+    h: [0.4, 1.1]
+    A_s: [0.5, 5.]
+    n_s: [0.7, 1.3]
+    w0:
+    wa:
+    logT_AGN:
+    A_IA:
+    delta_z: yes

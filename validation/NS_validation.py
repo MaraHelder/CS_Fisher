@@ -118,7 +118,7 @@ scale_z = config.redshift_distributions.sources.sigma_delta_z*(1+mean_z)
 fm.add_prior(redshift_params['name'], scale_z)
 
 print(f'Writing output.')
-IO.save_fisher_matrix(config, fm, 'fm_sampling_validation')
+IO.save_fisher_matrix(config, fm, 'fisher_matrix')
 
 # Compute the theory data and covariance
 C_ell_vec = fm.C_ell
@@ -152,10 +152,9 @@ if args.biased_config is not None:
 # Likelihood
 def likelihood(param_dict):
     cosmo_in_dict = config.cosmology.copy()
-    # These three: if set from fm, cannot run bias analysis.
     bayrons_dict_in = config.baryons_dict.copy()
-    A_IA_in = fm.A_IA # FIXME: This should be config
-    eta_in = fm.eta
+    A_IA_in = config.IA.A_IA
+    eta_in = config.IA.eta
     dndz_in = nz_arr
 
     for ip, p in enumerate(config.sampling_validation.keys()):
