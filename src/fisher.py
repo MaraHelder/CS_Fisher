@@ -4,72 +4,7 @@ from scipy.interpolate import interp1d
 from matplotlib.patches import Ellipse
 from scipy.stats import chi2
 import warnings
-from .utils import sigma8_derivative, names_to_latex
-
-def get_Pk_of_k_a_IA(cosmo: ccl.Cosmology, a1h: float,
-                     A_IA: float) \
-        -> dict:
-    """
-    Computes the intrinsic alignment power spectra P(k,a) for the GI and II terms using the halo model or TATT model. If a1h is not None, the halo model is used.
-
-    Args:
-        cosmo (object): A CCL cosmology object.
-        a1h (float): Value of the 1-halo term amplitude.
-        A_IA (float): Value of the intrinsic alignment amplitude.
-
-    Returns:
-        p_of_k_a (dict): A dictionary with keys corresponding to GI and II terms and values to P(k,a).
-    """
-    if a1h is None: #TODO: add TATT model.
-        return None
-    else:
-        # TODO: these should probably be parameters in the function, but for now we will keep them fixed.
-        k_arr = np.geomspace(1E-3, 1e3, 128)
-        lk_arr = np.log(k_arr)
-        a_arr = np.linspace(0.1, 1, 16)
-
-        # the halo mass definition
-        hm_def = '200m'
-        # the Duffy 2008 concentration-mass relation,
-        cM = ccl.halos.ConcentrationDuffy08(mass_def=hm_def)
-        # the Tinker 2010 halo mass function,
-        nM = ccl.halos.MassFuncTinker10(mass_def=hm_def)
-        # the Tinker 2010 halo bias,
-        bM = ccl.halos.HaloBiasTinker10(mass_def=hm_def)
-        # the halo model calculator
-        hmc = ccl.halos.HMCalculator(mass_function=nM, halo_bias=bM, mass_def=hm_def)
-        # the NFW halo profile
-        NFW =  ccl.halos.HaloProfileNFW(mass_def=hm_def, concentration=cM, truncated=True, fourier_analytic=True)
-        # the satellite shear HOD profile
-        sat_gamma_HOD = ccl.halos.SatelliteShearHOD(concentration=cM, mass_def=hm_def, a1h=a1h, b=-2)
-
-        # Compute the 1-halo and 2-halo terms for the II power spectrum
-        pk_II_1h_ss = ccl.halos.halomod_Pk2D(cosmo, hmc, sat_gamma_HOD, get_2h = False, a_arr=a_arr, lk_arr=lk_arr)
-        pk_II_2h_ss = ccl.halos.halomod_Pk2D(cosmo, hmc, sat_gamma_HOD, get_1h=False, a_arr=a_arr, lk_arr=lk_arr)
-        C1rhocrit = 0.0134
-        C = A_IA * C1rhocrit * cosmo['Omega_m'] / cosmo.growth_factor(a_arr)
-        C_pk_lin = ccl.pk2d.Pk2D(a_arr=a_arr, lk_arr=lk_arr,
-                            pk_arr=C.reshape(-1,1)*cosmo.linear_matter_power(np.e**lk_arr, a_arr),
-                            is_logp=False)
-        pk_b_gamma = -1 * ccl.pk2d.Pk2D(a_arr=a_arr, lk_arr=lk_arr,
-                                    pk_arr=ccl.halos.halomod_bias_1pt(cosmo, hmc, np.e**lk_arr, a_arr,
-                                                                    sat_gamma_HOD), is_logp=False)
-        pk_II_2h_cs = C_pk_lin * pk_b_gamma
-
-        pk_II_2h_cc = ccl.pk2d.Pk2D(a_arr=a_arr, lk_arr=lk_arr,
-                                pk_arr=C.reshape(-1,1)**2*cosmo.linear_matter_power(np.e**lk_arr, a_arr),
-                                is_logp=False)
-
-        # Compute the GI power spectrum
-        pk_GI_1h_s = ccl.halos.halomod_Pk2D(cosmo, hmc, NFW, prof2 = sat_gamma_HOD, get_2h = False, a_arr=a_arr, lk_arr=lk_arr)
-        pk_GI_2h_s = ccl.halos.halomod_Pk2D(cosmo, hmc, NFW, prof2 = sat_gamma_HOD, get_1h = False, a_arr=a_arr, lk_arr=lk_arr)
-        pk_GI_2h_c = -1*C_pk_lin
-
-        p_of_k_a = {}
-        p_of_k_a["GI"] = pk_GI_1h_s + pk_GI_2h_s + pk_GI_2h_c
-        p_of_k_a["II"] = pk_II_1h_ss + pk_II_2h_ss + pk_II_2h_cs + pk_II_2h_cc
-        
-        return p_of_k_a
+from .utils import sigma8_derivative, names_to_latex, get_Pk_of_k_a_IA
 
 def get_Cell_data_vector(cosmo: ccl.Cosmology,
                          z: np.ndarray, dndz: np.ndarray,
@@ -122,7 +57,12 @@ def get_Cell_data_vector(cosmo: ccl.Cosmology,
                 wl_tracer_z2 = ccl.WeakLensingTracer(cosmo,dndz = (z, dndz_use[z2]))
                 ia_tracer_z1 = ccl.WeakLensingTracer(cosmo,dndz = (z, dndz_use[z1]), has_shear=False, ia_bias = ia_bias, use_A_ia=False)
                 ia_tracer_z2 = ccl.WeakLensingTracer(cosmo,dndz = (z, dndz_use[z2]), has_shear=False, ia_bias = ia_bias, use_A_ia=False)
-                c_ells[f'z{z1}-z{z2}'] = ccl.angular_cl(cosmo, wl_tracer_z1, wl_tracer_z2, ell) + ccl.angular_cl(cosmo, wl_tracer_z1, ia_tracer_z2, ell, p_of_k_a=p_of_k_a["GI"]) + ccl.angular_cl(cosmo, ia_tracer_z1, ia_tracer_z2, ell, p_of_k_a=p_of_k_a["II"])
+
+                c_ell_GG = ccl.angular_cl(cosmo, wl_tracer_z1, wl_tracer_z2, ell)
+                c_ell_GI = ccl.angular_cl(cosmo, wl_tracer_z1, ia_tracer_z2, ell, p_of_k_a=p_of_k_a[0])
+                c_ell_IG = ccl.angular_cl(cosmo, ia_tracer_z1, wl_tracer_z2, ell, p_of_k_a=p_of_k_a[0])
+                c_ell_II = ccl.angular_cl(cosmo, ia_tracer_z1, ia_tracer_z2, ell, p_of_k_a=p_of_k_a[1])
+                c_ells[f'z{z1}-z{z2}'] = c_ell_GG + c_ell_GI + c_ell_IG + c_ell_II
     return c_ells
 
 
@@ -334,8 +274,11 @@ def compute_d_Cells(n_points: int,
                                      matter_power_spectrum='camb',
                                      extra_parameters={"camb": {"dark_energy_model": "ppf"} | baryons_dict})
 
-            pk_of_k_a = get_Pk_of_k_a_IA(cosmo_in, a1h=a1h_in, A_IA=A_IA_in)
-            C_ells = get_Cell_data_vector(cosmo_in, z, dndz_in, A_IA_in, eta_in, ell=ell, p_of_k_a=pk_of_k_a)
+            if a1h_in is None:
+                C_ells = get_Cell_data_vector(cosmo_in, z, dndz_in, A_IA_in, eta_in, ell=ell)
+            else:
+                pk_of_k_a = get_Pk_of_k_a_IA(cosmo_in, a1h=a1h_in, A_IA=A_IA_in)
+                C_ells = get_Cell_data_vector(cosmo_in, z, dndz_in, A_IA_in, eta_in, ell=ell, p_of_k_a=pk_of_k_a)
             d_Cells[:, di, :] += coeff[n] * np.array(list(C_ells.values())).T / params_shift[pi]
         di += 1
     return d_Cells

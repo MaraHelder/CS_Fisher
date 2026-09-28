@@ -83,3 +83,68 @@ def sigma8_derivative(cosmo_dict, parameter, shift, n_points):
         dsigma8 += coeff[n] * cosmo_in.sigma8() / shift
 
     return dsigma8
+
+def get_Pk_of_k_a_IA(cosmo: ccl.Cosmology, a1h: float,
+                     A_IA: float, k_arr: np.ndarray = np.geomspace(1E-3, 1e3, 128), a_arr: np.ndarray = np.linspace(0.1, 1, 32)) \
+        -> tuple[ccl.pk2d.Pk2D, ccl.pk2d.Pk2D]:
+    """
+    Computes the intrinsic alignment power spectra P(k,a) for the GI and II terms using the halo model or TATT model. If a1h is not None, the halo model is used.
+
+    Args:
+        cosmo (object): A CCL cosmology object.
+        a1h (float): Value of the 1-halo term amplitude.
+        A_IA (float): Value of the intrinsic alignment amplitude.
+        k_arr (np.ndarray): An array of wavenumbers (in units of 1/Mpc) at which to compute the power spectra.
+        a_arr (np.ndarray): An array of scale factors at which to compute the power spectra.
+
+    Returns:
+        p_of_k_a (tuple): A tuple containing the P(k,a) for the GI and II term (ccl.pk2d.Pk2D objects) in that order.
+    """
+    if a1h is None: #TODO: add TATT model.
+        return None
+    else:
+        lk_arr = np.log(k_arr)
+
+        # the halo mass definition
+        hm_def = '200m'
+        # the Duffy 2008 concentration-mass relation,
+        cM = ccl.halos.ConcentrationDuffy08(mass_def=hm_def)
+        # the Tinker 2010 halo mass function,
+        nM = ccl.halos.MassFuncTinker10(mass_def=hm_def)
+        # the Tinker 2010 halo bias,
+        bM = ccl.halos.HaloBiasTinker10(mass_def=hm_def)
+        # the halo model calculator
+        hmc = ccl.halos.HMCalculator(mass_function=nM, halo_bias=bM, mass_def=hm_def)
+        # the NFW halo profile
+        NFW =  ccl.halos.HaloProfileNFW(mass_def=hm_def, concentration=cM, truncated=True, fourier_analytic=True)
+        # the satellite shear HOD profile
+        sat_gamma_HOD = ccl.halos.SatelliteShearHOD(concentration=cM, mass_def=hm_def, a1h=a1h, b=-2)
+        
+        C1rhocrit = 5e-14*ccl.physical_constants.RHO_CRITICAL
+        C = A_IA * C1rhocrit * cosmo['Omega_m'] / cosmo.growth_factor(a_arr)
+
+        pk_II_1h_ss = ccl.halos.halomod_Pk2D(cosmo, hmc, sat_gamma_HOD, get_2h = False, a_arr=a_arr, lk_arr=lk_arr)
+        pk_GI_1h_s = ccl.halos.halomod_Pk2D(cosmo, hmc, NFW, prof2 = sat_gamma_HOD, get_2h = False, a_arr=a_arr, lk_arr=lk_arr)
+
+        k1h = 4*cosmo['h'] #1/Mpc
+        k2h = 6*cosmo['h'] #1/Mpc
+
+        pk_II_NLA_windowed = ccl.pk2d.Pk2D(a_arr=a_arr, lk_arr=lk_arr,
+                                        pk_arr=C.reshape(-1,1)**2*cosmo.nonlin_matter_power(np.e**lk_arr, a_arr)*np.exp(-(k_arr/k2h)**2).reshape(1,-1),
+                                        is_logp=False)
+        pk_GI_NLA_windowed = ccl.pk2d.Pk2D(a_arr=a_arr, lk_arr=lk_arr,
+                                        pk_arr=-C.reshape(-1,1)*cosmo.nonlin_matter_power(np.e**lk_arr, a_arr)*np.exp(-(k_arr/k2h)**2).reshape(1,-1),
+                                        is_logp=False)
+
+        pk_II_1h_ss_windowed = ccl.pk2d.Pk2D(a_arr=a_arr, lk_arr=lk_arr,
+                                            pk_arr=pk_II_1h_ss(k_arr, a_arr)*(1-np.exp(-(k_arr/k1h)**2)).reshape(1,-1),
+                                            is_logp=False)
+        pk_GI_1h_s_windowed = ccl.pk2d.Pk2D(a_arr=a_arr, lk_arr=lk_arr,
+                                            pk_arr=pk_GI_1h_s(k_arr, a_arr)*(1-np.exp(-(k_arr/k1h)**2)).reshape(1,-1),
+                                            is_logp=False)
+        pk_II_windowed = pk_II_NLA_windowed+pk_II_1h_ss_windowed
+        pk_GI_windowed = pk_GI_NLA_windowed+pk_GI_1h_s_windowed
+
+        p_k_of_k_a = [pk_II_windowed, pk_GI_windowed]
+        
+        return p_k_of_k_a

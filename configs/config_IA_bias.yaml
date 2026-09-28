@@ -23,6 +23,7 @@ baryons:
 
 IA:
     A_IA: 0.05
+    a1h:
     eta:
 
 derivatives:

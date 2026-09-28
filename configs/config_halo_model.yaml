@@ -1,4 +1,4 @@
-name: baryons
+name: halo_model
 
 paths:
     # Add below the directory of the project.
@@ -12,35 +12,34 @@ cosmology:
     Omega_m: 0.315
     Omega_b: 0.049
     h: 0.674
-    #sigma8: 0.811
-    A_s: 2.0989e-9
+    sigma8: 0.811
     n_s: 0.965
     w0: -1
     wa: 0
 
 baryons:
-#    logT_AGN: 7.
-    logT_AGN: 7.7
+    logT_AGN:
 
 IA:
-    A_IA:
-    a1h:
+    A_IA: 1
+    a1h: 0.000675
     eta:
 
 derivatives:
-    validation: [Omega_m, A_s]
+    validation: [Omega_m, sigma8]
     stencil_points: 5
     step_size:
-        Omega_m: 0.003
+        Omega_m: 0.01
         Omega_b:
         h:
-        A_s: 0.002
+        A_s:
+        sigma8: 0.05
         n_s:
-        w0: 0.002
-        wa:
+        w0: 0.07
+        wa: 0.3
         logT_AGN:
-        A_IA:
-        delta_z:
+        A_IA: 0.01
+        delta_z: 0.02
 
 ell_binning:
     cosmic_shear:
