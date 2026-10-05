@@ -24,6 +24,9 @@ baryons:
 IA:
     A_IA: 1
     a1h:
+    a1:
+    a2:
+    ad:
     eta:
 
 derivatives:

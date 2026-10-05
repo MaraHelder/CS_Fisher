@@ -1,6 +1,6 @@
 import numpy as np
 import pyccl as ccl
-
+import pyccl.nl_pt as pt
 
 def names_to_latex(parameter_name, dollar_signs=True):
     if parameter_name=='Omega_m':
@@ -85,7 +85,8 @@ def sigma8_derivative(cosmo_dict, parameter, shift, n_points):
     return dsigma8
 
 def get_Pk_of_k_a_IA(cosmo: ccl.Cosmology, a1h: float,
-                     A_IA: float, k_arr: np.ndarray = np.geomspace(1E-3, 1e3, 128), a_arr: np.ndarray = np.linspace(0.1, 1, 32)) \
+                     A_IA: float, a_1: float, a_2: float, a_d: float, z: np.ndarray,
+                     k_arr: np.ndarray = np.geomspace(1E-3, 1e3, 128), a_arr: np.ndarray = np.linspace(0.1, 1, 32)) \
         -> tuple[ccl.pk2d.Pk2D, ccl.pk2d.Pk2D]:
     """
     Computes the intrinsic alignment power spectra P(k,a) for the GI and II terms using the halo model or TATT model. If a1h is not None, the halo model is used.
@@ -94,15 +95,27 @@ def get_Pk_of_k_a_IA(cosmo: ccl.Cosmology, a1h: float,
         cosmo (object): A CCL cosmology object.
         a1h (float): Value of the 1-halo term amplitude.
         A_IA (float): Value of the intrinsic alignment amplitude.
+        a_1 (float): Value of the first alignment bias.
+        a_2 (float): Value of the second alignment bias.
+        a_d (float): Value of the overdensity alignment bias.
+        z (np.ndarray): An array of redshifts at which to compute the power spectra.
         k_arr (np.ndarray): An array of wavenumbers (in units of 1/Mpc) at which to compute the power spectra.
         a_arr (np.ndarray): An array of scale factors at which to compute the power spectra.
 
     Returns:
         p_of_k_a (tuple): A tuple containing the P(k,a) for the GI and II term (ccl.pk2d.Pk2D objects) in that order.
     """
-    if a1h is None: #TODO: add TATT model.
-        return None
-    else:
+    if a1h is None & (a_1 is not None or a_2 is not None or a_d is not None):
+        c_1,c_d,c_2 = pt.translate_IA_norm(cosmo, z=z, a1=a_1, a1delta=a_d, a2=a_2, Om_m2_for_c2 = False)
+        ptt_i = pt.PTIntrinsicAlignmentTracer(c1=(z,c_1), c2=(z,c_2), cdelta=(z,c_d))
+        ptc = pt.EulerianPTCalculator(with_NC=False, with_IA=True, # TODO: with_NC?
+                      log10k_min=np.log10(k_arr.min()), log10k_max=np.log10(k_arr.max()), nk_per_decade=20, arr=a_arr) # TODO:nk_per_decade?
+        ptc.update_ingredients(cosmo)
+
+        pk_II = ptc.get_biased_pk2d(ptt_i, ptt_i)
+        pk_GI = ptc.get_biased_pk2d(ccl.tracers.CMBLensingTracer(cosmo), ptt_i)
+        return [pk_GI, pk_II]
+    elif a1h is not None & (a_1 is None & a_2 is None & a_d is None):
         lk_arr = np.log(k_arr)
 
         # the halo mass definition

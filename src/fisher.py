@@ -250,6 +250,9 @@ def compute_d_Cells(n_points: int,
             A_IA_in = param_in[np.isin(params_name, 'A_IA')][0]
             eta_in = param_in[np.isin(params_name, 'eta')][0]
             a1h_in = param_in[np.isin(params_name, 'a1h')][0]
+            a1_in = param_in[np.isin(params_name, 'a1')][0]
+            a2_in = param_in[np.isin(params_name, 'a2')][0]
+            ad_in = param_in[np.isin(params_name, 'ad')][0]
 
             # Define the baryon feedback parameters
             try:
@@ -275,10 +278,11 @@ def compute_d_Cells(n_points: int,
                                      matter_power_spectrum='camb',
                                      extra_parameters={"camb": {"dark_energy_model": "ppf"} | baryons_dict})
 
-            if a1h_in is None:
+            if (a1h_in is None) and (a1_in is None) and (a2_in is None) and (ad_in is None):
                 C_ells = get_Cell_data_vector(cosmo_in, z, dndz_in, A_IA_in, eta_in, ell=ell)
             else:
-                pk_of_k_a = get_Pk_of_k_a_IA(cosmo_in, a1h=a1h_in, A_IA=A_IA_in)
+                pk_of_k_a = get_Pk_of_k_a_IA(cosmo_in, a1h=a1h_in, A_IA=A_IA_in, a_1=a1_in, a_2=a2_in, a_d=ad_in,
+                                             z=z) # TODO: add k_arr and a_arr as input parameters to this function.
                 C_ells = get_Cell_data_vector(cosmo_in, z, dndz_in, A_IA_in, eta_in, ell=ell, p_of_k_a=pk_of_k_a)
             d_Cells[:, di, :] += coeff[n] * np.array(list(C_ells.values())).T / params_shift[pi]
         di += 1
