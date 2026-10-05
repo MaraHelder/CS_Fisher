@@ -341,7 +341,7 @@ class fisher_matrix(object):
         if cosmo_params is None:
             self.cosmo_params = {'name': [], 'fiducial': [], 'shift': []}
         if astro_params is None:
-            self.astro_params = {'name': ['A_IA', 'eta', 'a1h'], 'fiducial': [None, None, None], 'shift': [None, None, None]}
+            self.astro_params = {'name': ['A_IA', 'eta', 'a1h', 'a1', 'a2', 'ad'], 'fiducial': [None, None, None, None, None, None], 'shift': [None, None, None, None, None, None]}
         if redshift_params is None:
             self.redshift_params = {'name': [], 'fiducial': [], 'shift': []}
 
@@ -352,6 +352,9 @@ class fisher_matrix(object):
         self.A_IA = np.array(self.astro_params['fiducial'])[np.isin(self.astro_params['name'], 'A_IA')][0]
         self.a1h = np.array(self.astro_params['fiducial'])[np.isin(self.astro_params['name'], 'a1h')][0]
         self.eta = np.array(self.astro_params['fiducial'])[np.isin(self.astro_params['name'], 'eta')][0]
+        self.a1 = np.array(self.astro_params['fiducial'])[np.isin(self.astro_params['name'], 'a1')][0]
+        self.a2 = np.array(self.astro_params['fiducial'])[np.isin(self.astro_params['name'], 'a2')][0]
+        self.ad = np.array(self.astro_params['fiducial'])[np.isin(self.astro_params['name'], 'ad')][0]
         for param_dict in [self.cosmo_params, self.astro_params, self.redshift_params]:
             if 'latex' not in param_dict:
                 param_dict['latex'] = param_dict['name']
@@ -359,7 +362,7 @@ class fisher_matrix(object):
                 param_dict['shift'] = [-1.]*len(param_dict['name'])
 
         if fisher_from_input is None:
-            self.C_ell = get_Cell_data_vector(self.cosmo, self.z, self.dndz, self.A_IA, self.eta, ell=self.ell, p_of_k_a=get_Pk_of_k_a_IA(self.cosmo, a1h=self.a1h, A_IA=self.A_IA))
+            self.C_ell = get_Cell_data_vector(self.cosmo, self.z, self.dndz, self.A_IA, self.eta, ell=self.ell, p_of_k_a=get_Pk_of_k_a_IA(self.cosmo, a1h=self.a1h, A_IA=self.A_IA, a_1=self.a1, a_2=self.a2, a_d=self.ad, z=self.z))
             self.data_covariance = get_covariance(self.ell, self.C_ell,
                                                   self.n_bar, self.sigma_e,
                                                   f_sky=self.fsky, Delta_ell=self.Delta_ell)

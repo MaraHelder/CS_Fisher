@@ -43,7 +43,7 @@ def load_config(config_file):
         config['baryons'] = {'logT_AGN': None}
     config.update(baryons_dictionary(config))
 
-    # Check for either halo model (a1h) or TATT model (a1, a2, ad) in the config file.
+    # Check for either halo model (a1h) or TATT model (a1, a2, ad) in the config file, not both.
     if (config['IA']['a1h'] is not None) and (config['IA']['a1'] is not None or config['IA']['a2'] is not None or config['IA']['ad'] is not None):
         raise ValueError('Cannot pass both halo model (a1h) and TATT model (a1, a2, ad). '
                          'Set one to None.')
