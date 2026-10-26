@@ -1,0 +1,73 @@
+name: TATT_model
+
+paths:
+    # Add below the directory of the project.
+    # Rest of the paths are relative but might need to be changed for specific cases.
+    project: &projectpath Users/marah/OneDrive/Documenten/GitHub/CS_Fisher
+    output:
+        fisher_matrix: !join [*projectpath, output]
+        figures: !join [*projectpath, figures]
+
+cosmology:
+    Omega_m: 0.315
+    Omega_b: 0.049
+    h: 0.674
+    sigma8: 0.811
+    n_s: 0.965
+    w0: -1
+    wa: 0
+
+baryons:
+    logT_AGN:
+
+IA:
+    A_IA: 1
+    a1h:
+    a1: 1
+    a2: 0.5
+    ad: 0.5
+    eta:
+
+derivatives:
+    validation: [Omega_m, sigma8]
+    stencil_points: 5
+    step_size:
+        Omega_m: 0.01
+        Omega_b:
+        h:
+        A_s:
+        sigma8: 0.05
+        n_s:
+        w0: 0.07
+        wa: 0.3
+        logT_AGN:
+        A_IA: 0.01
+        delta_z: 0.02
+
+ell_binning:
+    cosmic_shear:
+        bin_start: 20
+        bin_end: 15001
+        N_bins: 20
+        ell_min: 100
+        ell_max: 2000
+
+forecast:
+    fsky: 0.4
+    e_rms: 0.26
+    year: 1
+    z_min: 0.1
+    z_max: 4.
+    N_z_values: 400
+
+sampling_validation:
+    Omega_m:
+    Omega_b:
+    h:
+    A_s:
+    n_s:
+    w0:
+    wa:
+    logT_AGN:
+    A_IA:
+    delta_z:

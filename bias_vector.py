@@ -6,10 +6,10 @@ from src import redshift_distributions, IO
 from src.configs import load_config
 from src.utils import names_to_latex
 
-from .fisher import get_Cell_data_vector, compute_Fisher_matrix, get_covariance, compute_d_Cells, get_Pk_of_k_a_IA
+from src.fisher import get_Cell_data_vector, compute_Fisher_matrix, get_covariance, compute_d_Cells, get_Pk_of_k_a_IA
 
 def compute_bias_vector(config1, config2):
-    print(f'Running bias vector analysis for {config1.name} assumed and {config2.name}.')
+    print(f'Running bias vector analysis for {config1.name} assumed and {config2.name} true.')
 
     # Load the cosmologies for both configurations
     ccl_cosmo_params_config1 = dict(zip(config1.cosmology.keys(), config1.cosmology.values()))
@@ -71,22 +71,22 @@ def compute_bias_vector(config1, config2):
     # Compute both Cells data vectors and its difference
     print(f'Computing Cells data vectors for both configurations.')
     pk_of_k_a_config1= get_Pk_of_k_a_IA(cosmo_config1, a1h=config1.IA.a1h, A_IA=config1.IA.A_IA,
-                                        a_1=config1.IA.a_1, a_2=config1.IA.a_2, a_d=config1.IA.a_d,
+                                        a_1=config1.IA.a1, a_2=config1.IA.a2, a_d=config1.IA.ad,
                                         z=z_arr)
     C_ells_config1= get_Cell_data_vector(cosmo_config1, z_arr, nz_arr, config1.IA.A_IA, config1.IA.eta,
                                         ell=ell_arr, p_of_k_a=pk_of_k_a_config1)
 
     pk_of_k_a_config2= get_Pk_of_k_a_IA(cosmo_config2, a1h=config2.IA.a1h, A_IA=config2.IA.A_IA,
-                                        a_1=config2.IA.a_1, a_2=config2.IA.a_2, a_d=config2.IA.a_d,
+                                        a_1=config2.IA.a1, a_2=config2.IA.a2, a_d=config2.IA.ad,
                                         z=z_arr)
     C_ells_config2= get_Cell_data_vector(cosmo_config2, z_arr, nz_arr, config2.IA.A_IA, config2.IA.eta,
                                         ell=ell_arr, p_of_k_a=pk_of_k_a_config2)
-    dC_ells = np.array(list(C_ells_config2.values())) - np.array(list(C_ells_config1.values()))
+    sysC_ells = np.array(list(C_ells_config2.values())) - np.array(list(C_ells_config1.values()))
 
     # Compute the covariance matrix
     print(f'Computing covariance matrix for configuration 1.') 
     covariance = get_covariance(ell_arr, C_ells_config1, n_bar=config1.redshift_distributions.sources.nbar,
-                                       sig_e=sigma_e, f_sky=config1.forecast.f_sky, Delta_ell=Delta_ell)
+                                       sig_e=sigma_e, f_sky=config1.forecast.fsky, Delta_ell=Delta_ell)
 
     # Compute the derivatives of the Cells data vector with respect to the cosmological parameters for configuration 1
     print(f'Computing derivatives of Cells data vector for configuration 1.')
@@ -104,31 +104,46 @@ def compute_bias_vector(config1, config2):
                            'latex': [r'$\Delta z_{%i}$' % (i + 1) for i in range(N_z_bins)]}
     
     dC_ells_dtheta = compute_d_Cells(config1.derivatives.stencil_points, cosmo_params, astro_params, redshift_params, z_arr, nz_arr, ell_arr)
-
+    print(f'dC_ells_dtheta shape: {dC_ells_dtheta.shape}, covariance shape: {covariance.shape}, sysC_ells shape: {sysC_ells.shape}.')
     # Compute the Fisher matrix for configuration 1
     print(f'Computing Fisher matrix for configuration 1.')
     fisher_matrix_config1 = compute_Fisher_matrix(dC_ells_dtheta, covariance)
+    print(f'Fisher matrix: {fisher_matrix_config1}.')
     inverse_fisher_matrix_config1 = np.linalg.inv(fisher_matrix_config1)
 
     # Compute the bias vector
     print(f'Computing bias vector.')
-    bias_vector = # TODO: How to compute the sum, understand the dimensions of covariance
+    N_params = dC_ells_dtheta.shape[1]
+    bias_vector = np.zeros(N_params)
+    for l in range(covariance.shape[0]):
+        invcov = np.linalg.inv(covariance[l])
+        bias_vector += invcov.dot(sysC_ells.T[l]).dot(dC_ells_dtheta[l].T)
+     # TODO: Check if the above computation is correct
     bias = inverse_fisher_matrix_config1 @ bias_vector
+    print(f'Bias vector: {bias}')
 
     print(f'Writing output.')
     IO.save_bias_vector(config1, config2, bias, 'bias_vector')
 
-if __name__ == '__bias_vector__':
+if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(
         description='',
-        epilog='')
-    parser.add_argument('-c1', '--config1', dest='config1',
-                        help='Location of the first configuration yaml file.',
-                        default='configs/config_main.yaml')
-    parser.add_argument('-c2', '--config2', dest='config2',
-                        help='Location of the second configuration yaml file.',
-                        default='configs/config_main.yaml')
+        epilog=''
+    )
+    parser.add_argument(
+        '-c1', '--config1',
+        dest='config1',
+        help='Location of the first configuration YAML file.',
+        default='configs/config_main.yaml'
+    )
+    parser.add_argument(
+        '-c2', '--config2',
+        dest='config2',
+        help='Location of the second configuration YAML file.',
+        default='configs/config_main.yaml'
+    )
+
     args = parser.parse_args()
 
     config1 = load_config(args.config1)

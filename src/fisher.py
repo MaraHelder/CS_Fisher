@@ -283,6 +283,7 @@ def compute_d_Cells(n_points: int,
             else:
                 pk_of_k_a = get_Pk_of_k_a_IA(cosmo_in, a1h=a1h_in, A_IA=A_IA_in, a_1=a1_in, a_2=a2_in, a_d=ad_in,
                                              z=z) # TODO: add k_arr and a_arr as input parameters to this function.
+                pk_of_k_a = get_Pk_of_k_a_IA(cosmo_in, a1h=a1h_in, A_IA=A_IA_in, a_1=a1_in, a_2=a2_in, a_d=ad_in, z=z) # TODO: add k_arr and a_arr as input parameters to this function.
                 C_ells = get_Cell_data_vector(cosmo_in, z, dndz_in, A_IA_in, eta_in, ell=ell, p_of_k_a=pk_of_k_a)
             d_Cells[:, di, :] += coeff[n] * np.array(list(C_ells.values())).T / params_shift[pi]
         di += 1

@@ -26,6 +26,12 @@ def names_to_latex(parameter_name, dollar_signs=True):
         latex_name = r'\eta'
     elif parameter_name == 'a1h':
         latex_name = r'a_\mathrm{1h}'
+    elif parameter_name == 'a1':
+        latex_name = r'a_\mathrm{1}'
+    elif parameter_name == 'a2':
+        latex_name = r'a_\mathrm{2}' 
+    elif parameter_name == 'ad':
+        latex_name = r'a_\mathrm{d}' 
     elif parameter_name == 'logT_AGN':
         latex_name = r'\log T_\mathrm{AGN}'
 
@@ -105,17 +111,17 @@ def get_Pk_of_k_a_IA(cosmo: ccl.Cosmology, a1h: float,
     Returns:
         p_of_k_a (tuple): A tuple containing the P(k,a) for the GI and II term (ccl.pk2d.Pk2D objects) in that order.
     """
-    if a1h is None & (a_1 is not None or a_2 is not None or a_d is not None):
+    if a1h is None and (a_1 is not None or a_2 is not None or a_d is not None):
         c_1,c_d,c_2 = pt.translate_IA_norm(cosmo, z=z, a1=a_1, a1delta=a_d, a2=a_2, Om_m2_for_c2 = False)
         ptt_i = pt.PTIntrinsicAlignmentTracer(c1=(z,c_1), c2=(z,c_2), cdelta=(z,c_d))
         ptc = pt.EulerianPTCalculator(with_NC=False, with_IA=True, # TODO: with_NC?
-                      log10k_min=np.log10(k_arr.min()), log10k_max=np.log10(k_arr.max()), nk_per_decade=20, arr=a_arr) # TODO:nk_per_decade?
+                      log10k_min=np.log10(k_arr.min()), log10k_max=np.log10(k_arr.max()), nk_per_decade=20) # TODO:nk_per_decade?
         ptc.update_ingredients(cosmo)
 
-        pk_II = ptc.get_biased_pk2d(ptt_i, ptt_i)
-        pk_GI = ptc.get_biased_pk2d(ccl.tracers.CMBLensingTracer(cosmo), ptt_i)
+        pk_II = ptc.get_biased_pk2d(ptt_i, tracer2=ptt_i)
+        pk_GI = ptc.get_biased_pk2d(pt.PTMatterTracer(), tracer2=ptt_i)
         return [pk_GI, pk_II]
-    elif a1h is not None & (a_1 is None & a_2 is None & a_d is None):
+    elif a1h is not None and a_1 is None and a_2 is None and a_d is None:
         lk_arr = np.log(k_arr)
 
         # the halo mass definition
@@ -159,5 +165,4 @@ def get_Pk_of_k_a_IA(cosmo: ccl.Cosmology, a1h: float,
         pk_GI_windowed = pk_GI_NLA_windowed+pk_GI_1h_s_windowed
 
         p_k_of_k_a = [pk_II_windowed, pk_GI_windowed]
-        
         return p_k_of_k_a
