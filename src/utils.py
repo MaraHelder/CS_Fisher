@@ -120,7 +120,7 @@ def get_Pk_of_k_a_IA(cosmo: ccl.Cosmology, a1h: float,
 
         pk_II = ptc.get_biased_pk2d(ptt_i, tracer2=ptt_i)
         pk_GI = ptc.get_biased_pk2d(pt.PTMatterTracer(), tracer2=ptt_i)
-        return [pk_GI, pk_II]
+        return [pk_II, pk_GI]
     elif a1h is not None and a_1 is None and a_2 is None and a_d is None:
         lk_arr = np.log(k_arr)
 

@@ -12,20 +12,20 @@ def compute_bias_vector(config1, config2):
     print(f'Running bias vector analysis for {config1.name} assumed and {config2.name} true.')
 
     # Load the cosmologies for both configurations
-    ccl_cosmo_params_config1 = dict(zip(config1.cosmology.keys(), config1.cosmology.values()))
-    ccl_cosmo_params_config2 = dict(zip(config2.cosmology.keys(), config2.cosmology.values()))
+    cosmo_params_config1 = dict(zip(config1.cosmology.keys(), config1.cosmology.values()))
+    cosmo_params_config2 = dict(zip(config2.cosmology.keys(), config2.cosmology.values()))
 
-    if 'Omega_m' in ccl_cosmo_params_config1.keys():
-        ccl_cosmo_params_config1['Omega_c'] = ccl_cosmo_params_config1['Omega_m'] - ccl_cosmo_params_config1['Omega_b']
-        ccl_cosmo_params_config1.pop('Omega_m')
-    if 'Omega_m' in ccl_cosmo_params_config2.keys():
-        ccl_cosmo_params_config2['Omega_c'] = ccl_cosmo_params_config2['Omega_m'] - ccl_cosmo_params_config2['Omega_b']
-        ccl_cosmo_params_config2.pop('Omega_m')
+    if 'Omega_m' in cosmo_params_config1.keys():
+        cosmo_params_config1['Omega_c'] = cosmo_params_config1['Omega_m'] - cosmo_params_config1['Omega_b']
+        cosmo_params_config1.pop('Omega_m')
+    if 'Omega_m' in cosmo_params_config2.keys():
+        cosmo_params_config2['Omega_c'] = cosmo_params_config2['Omega_m'] - cosmo_params_config2['Omega_b']
+        cosmo_params_config2.pop('Omega_m')
 
-    cosmo_config1 = ccl.Cosmology(**ccl_cosmo_params_config1,   
+    cosmo_config1 = ccl.Cosmology(**cosmo_params_config1,   
                                   matter_power_spectrum='camb',
                                   extra_parameters = {"camb": config1.baryons_dict})
-    cosmo_config2 = ccl.Cosmology(**ccl_cosmo_params_config2,   
+    cosmo_config2 = ccl.Cosmology(**cosmo_params_config2,   
                                   matter_power_spectrum='camb',
                                   extra_parameters = {"camb": config2.baryons_dict})
 
@@ -88,6 +88,7 @@ def compute_bias_vector(config1, config2):
     covariance = get_covariance(ell_arr, C_ells_config1, n_bar=config1.redshift_distributions.sources.nbar,
                                        sig_e=sigma_e, f_sky=config1.forecast.fsky, Delta_ell=Delta_ell)
 
+    #TODO: Add a check to see if the derivatives step sizes are the same for both configurations. If not, raise a warning and use the step sizes from config1 for the bias vector computation, but need both Fisher matrices for the final plot.
     # Compute the derivatives of the Cells data vector with respect to the cosmological parameters for configuration 1
     print(f'Computing derivatives of Cells data vector for configuration 1.')
     cosmo_params = {'name': list(config1.cosmology.keys()),
@@ -104,11 +105,10 @@ def compute_bias_vector(config1, config2):
                            'latex': [r'$\Delta z_{%i}$' % (i + 1) for i in range(N_z_bins)]}
     
     dC_ells_dtheta = compute_d_Cells(config1.derivatives.stencil_points, cosmo_params, astro_params, redshift_params, z_arr, nz_arr, ell_arr)
-    print(f'dC_ells_dtheta shape: {dC_ells_dtheta.shape}, covariance shape: {covariance.shape}, sysC_ells shape: {sysC_ells.shape}.')
+
     # Compute the Fisher matrix for configuration 1
     print(f'Computing Fisher matrix for configuration 1.')
     fisher_matrix_config1 = compute_Fisher_matrix(dC_ells_dtheta, covariance)
-    print(f'Fisher matrix: {fisher_matrix_config1}.')
     inverse_fisher_matrix_config1 = np.linalg.inv(fisher_matrix_config1)
 
     # Compute the bias vector

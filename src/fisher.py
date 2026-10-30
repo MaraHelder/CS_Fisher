@@ -59,9 +59,9 @@ def get_Cell_data_vector(cosmo: ccl.Cosmology,
                 ia_tracer_z2 = ccl.WeakLensingTracer(cosmo,dndz = (z, dndz_use[z2]), has_shear=False, ia_bias = ia_bias, use_A_ia=False)
 
                 c_ell_GG = ccl.angular_cl(cosmo, wl_tracer_z1, wl_tracer_z2, ell)
-                c_ell_GI = ccl.angular_cl(cosmo, wl_tracer_z1, ia_tracer_z2, ell, p_of_k_a=p_of_k_a[0])
-                c_ell_IG = ccl.angular_cl(cosmo, ia_tracer_z1, wl_tracer_z2, ell, p_of_k_a=p_of_k_a[0])
-                c_ell_II = ccl.angular_cl(cosmo, ia_tracer_z1, ia_tracer_z2, ell, p_of_k_a=p_of_k_a[1])
+                c_ell_GI = ccl.angular_cl(cosmo, wl_tracer_z1, ia_tracer_z2, ell, p_of_k_a=p_of_k_a[1])
+                c_ell_IG = ccl.angular_cl(cosmo, ia_tracer_z1, wl_tracer_z2, ell, p_of_k_a=p_of_k_a[1])
+                c_ell_II = ccl.angular_cl(cosmo, ia_tracer_z1, ia_tracer_z2, ell, p_of_k_a=p_of_k_a[0])
                 c_ells[f'z{z1}-z{z2}'] = c_ell_GG + c_ell_GI + c_ell_IG + c_ell_II
     return c_ells
 
@@ -281,8 +281,6 @@ def compute_d_Cells(n_points: int,
             if (a1h_in is None) and (a1_in is None) and (a2_in is None) and (ad_in is None):
                 C_ells = get_Cell_data_vector(cosmo_in, z, dndz_in, A_IA_in, eta_in, ell=ell)
             else:
-                pk_of_k_a = get_Pk_of_k_a_IA(cosmo_in, a1h=a1h_in, A_IA=A_IA_in, a_1=a1_in, a_2=a2_in, a_d=ad_in,
-                                             z=z) # TODO: add k_arr and a_arr as input parameters to this function.
                 pk_of_k_a = get_Pk_of_k_a_IA(cosmo_in, a1h=a1h_in, A_IA=A_IA_in, a_1=a1_in, a_2=a2_in, a_d=ad_in, z=z) # TODO: add k_arr and a_arr as input parameters to this function.
                 C_ells = get_Cell_data_vector(cosmo_in, z, dndz_in, A_IA_in, eta_in, ell=ell, p_of_k_a=pk_of_k_a)
             d_Cells[:, di, :] += coeff[n] * np.array(list(C_ells.values())).T / params_shift[pi]
