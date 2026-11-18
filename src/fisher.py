@@ -465,8 +465,7 @@ class fisher_matrix(object):
             parameters (iterable): The parameter(s) over which the marginalised
                 covariance will be computed.
         """
-        # FIXME: This returns the matrix with parameters sorted.
-        param_indices = np.arange(len(self.parameters))[np.isin(self.parameters, parameters)]
+        param_indices = np.array([list(self.parameters).index(param) for param in parameters])
         return self.covariance[np.ix_(param_indices, param_indices)]
 
     def transform_fisher_matrix(self, jacobian: np.ndarray, param_old: str,
@@ -502,7 +501,7 @@ class fisher_matrix(object):
         M = np.identity(self.dim)
         for ip, p in enumerate(self.parameters):
             if p in self.cosmo_params['name']:
-                M[ip, A_s_idx] = dsig8[p]
+                M[A_s_idx, ip] = dsig8[p]
         M = np.linalg.inv(M)
 
         return self.transform_fisher_matrix(M, 'A_s', 'sigma8', self.cosmo.sigma8())
