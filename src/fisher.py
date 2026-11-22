@@ -355,7 +355,6 @@ class fisher_matrix(object):
         self.construct_parameter_lists()
 
         self.covariance = np.linalg.inv(self.fisher_matrix)
-        self.dim = len(self.parameters)
 
     def __getitem__(self, *keys):
         """ Determines behavior of `self[key]` """
@@ -396,6 +395,7 @@ class fisher_matrix(object):
                                                 self.astro_params['latex'],
                                                 self.redshift_params['latex'])
                                                )[ids_varied]
+        self.dim = len(self.parameters)
         return
 
     def fix_parameters(self, parameters):
