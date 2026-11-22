@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 import pyccl as ccl
 from scipy.interpolate import interp1d
@@ -351,6 +352,33 @@ class fisher_matrix(object):
         else:
             self.fisher_matrix = fisher_from_input
 
+        self.construct_parameter_lists()
+
+        self.covariance = np.linalg.inv(self.fisher_matrix)
+        self.dim = len(self.parameters)
+
+    def __getitem__(self, *keys):
+        """ Determines behavior of `self[key]` """
+        keys_in = np.atleast_1d(keys[0])
+        assert all(s in self.parameters for s in keys_in), \
+            f'Parameter is not in the Fisher matrix list of parameters.'
+
+        keys_indices = np.arange(len(self.parameters))[np.isin(self.parameters, keys_in)]
+        return self.fisher_matrix[np.ix_(keys_indices, keys_indices)]
+
+    def copy(self):
+        fm = fisher_matrix.__new__(fisher_matrix)
+
+        for key, value in self.__dict__.items():
+            if key == 'cosmo':
+                fm.__dict__[key] = value
+            else:
+                fm.__dict__[key] = copy.deepcopy(value)
+
+        return fm
+
+    def construct_parameter_lists(self):
+        """ Constructs three lists with varied parameter names, fiducial values, and latex key. """
         params_shift = np.concatenate((self.cosmo_params['shift'],
                                        self.astro_params['shift'],
                                        self.redshift_params['shift']))
@@ -368,48 +396,33 @@ class fisher_matrix(object):
                                                 self.astro_params['latex'],
                                                 self.redshift_params['latex'])
                                                )[ids_varied]
-        self.covariance = np.linalg.inv(self.fisher_matrix)
-        self.dim = len(self.parameters)
-
-    def __getitem__(self, *keys):
-        """ Determines behavior of `self[key]` """
-        keys_in = np.atleast_1d(keys[0])
-        assert all(s in self.parameters for s in keys_in), \
-            f'Parameter is not in the Fisher matrix list of parameters.'
-
-        keys_indices = np.arange(len(self.parameters))[np.isin(self.parameters, keys_in)]
-        return self.fisher_matrix[np.ix_(keys_indices, keys_indices)]
+        return
 
     def fix_parameters(self, parameters):
         parameters_in = np.atleast_1d(parameters)
-        assert all(s in self.parameters for s in parameters_in)
-        keys_indices = np.arange(len(self.parameters))[~np.isin(self.parameters, parameters_in)]
+        assert all(s in self.parameters for s in parameters_in), \
+            'At least one of the parameters to fix is not in the Fisher matrix.'
+        # Identify indices of parameters to retain
+        keys_indices = np.where(~np.isin(self.parameters, parameters_in))[0]
+        assert len(keys_indices) > 0, \
+            'Cannot fix all parameters: the resulting Fisher matrix would be empty.'
 
+        # Make copy, update Fisher matrix, covariance, derivatives
         ret = self.copy()
         ret.fisher_matrix = self.fisher_matrix[np.ix_(keys_indices, keys_indices)]
         ret.covariance = np.linalg.inv(ret.fisher_matrix)
-        #ret.d_C_ell = ret.d_C_ell[:, keys_indices, :]
+        ret.d_C_ell = ret.d_C_ell[:, keys_indices, :]
 
-        ret.parameters = ret.parameters[keys_indices]
-        ret.fiducial_parameters = ret.fiducial_parameters[keys_indices]
-        ret.latex_parameters = ret.latex_parameters[keys_indices]
-        ret.dim = len(ret.parameters)
+        # Set "shift" value to None for fixed parameters
+        for param_dict in (ret.cosmo_params, ret.astro_params, ret.redshift_params):
+            for i, name in enumerate(param_dict['name']):
+                if name in parameters_in:
+                    param_dict['shift'][i] = None
 
-        ret.cosmo_params = None
-        ret.astro_params = None
-        ret.redshift_params = None
+        # Reconstruct parameter lists
+        ret.construct_parameter_lists()
 
         return ret
-
-    def copy(self):
-        fm = fisher_matrix.__new__(fisher_matrix)
-        for key, item in self.__dict__.items():
-            if isinstance(item, np.ndarray):
-                # Only items that might change need to be deep-copied.
-                fm.__dict__[key] = item.copy()
-            else:
-                fm.__dict__[key] = item
-        return fm
 
     def add_prior(self, parameters: {str, iter},
                   sigma_parameters: {float, iter}):
@@ -441,8 +454,38 @@ class fisher_matrix(object):
             parameters (iterable): The parameter(s) over which the marginalised
                 covariance will be computed.
         """
+        assert all(p in self.parameters for p in parameters), \
+            'At least one of the requested parameters is not in the Fisher matrix.'
         param_indices = np.array([list(self.parameters).index(param) for param in parameters])
         return self.covariance[np.ix_(param_indices, param_indices)]
+
+    def marginalise(self, parameters: iter) -> "fisher_matrix":
+        """
+        Returns a new Fisher matrix with all parameters except the specified
+        ones marginalised over.
+
+        Args:
+            parameters (iterable): The parameter(s) over which to marginalise
+                the fisher matrix.
+            """
+        ret = self.copy()
+        # Marginalised covariance and corresponding Fisher matrix
+        ret.covariance = self.marginalised_covariance(parameters)
+        ret.fisher_matrix = np.linalg.inv(ret.covariance)
+
+        param_indices = np.array([list(self.parameters).index(param) for param in parameters])
+        ret.d_C_ell = ret.d_C_ell[:, param_indices, :]
+
+        # Mark marginalised parameters as not varied
+        for param_dict in (ret.cosmo_params, ret.astro_params, ret.redshift_params):
+            for i, name in enumerate(param_dict['name']):
+                if name not in parameters:
+                    param_dict['shift'][i] = None
+
+        # Reconstruct parameter lists
+        ret.construct_parameter_lists()
+
+        return ret
 
     def transform_fisher_matrix(self, jacobian: np.ndarray, param_old: str,
                                 param_new: str, param_new_value: float):
@@ -457,11 +500,20 @@ class fisher_matrix(object):
         ret.fiducial_parameters[param_idx] = param_new_value
         ret.latex_parameters[param_idx] = names_to_latex(param_new)
 
-        # FIXME: Is there a better way to do this and keep these quantities?
-        ret.d_C_ell = None
-        ret.cosmo_params = None
-        ret.astro_params = None
-        ret.redshift_params = None
+        # Update derivatives according to the jacobian: D_new = D_old * J per ell.
+        ret.d_C_ell = np.einsum('apq,pj->ajq', self.d_C_ell, jacobian)
+
+        # Replace the old parameter with the new one in the appropriate dictionary
+        for param_dict in (ret.cosmo_params, ret.astro_params, ret.redshift_params):
+            if param_old in param_dict['name']:
+                idx = param_dict['name'].index(param_old)
+
+                param_dict['name'][idx] = param_new
+                param_dict['fiducial'][idx] = param_new_value
+                param_dict['latex'][idx] = names_to_latex(param_new)
+
+        # Reconstruct parameter arrays
+        ret.construct_parameter_lists()
 
         return ret
 
