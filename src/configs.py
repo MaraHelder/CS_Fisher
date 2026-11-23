@@ -7,9 +7,15 @@ from numpy import pi
 class DictAsMember(dict):
     # Allows for getting attributes of dictionaries
     def __getattr__(self, name):
-        value = self[name]
+        try:
+            value = self[name]
+        except KeyError:
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'") from None
+
         if isinstance(value, dict):
             value = DictAsMember(value)
+            self[name] = value
+
         return value
 
     def __dir__(self):
