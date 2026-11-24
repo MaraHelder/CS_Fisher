@@ -3,7 +3,7 @@ name: TATT_model
 paths:
     # Add below the directory of the project.
     # Rest of the paths are relative but might need to be changed for specific cases.
-    project: &projectpath Users/marah/OneDrive/Documenten/GitHub/CS_Fisher
+    project: &projectpath /Users/cgeorgiou/PycharmProjects/CS_Fisher
     output:
         fisher_matrix: !join [*projectpath, output]
         figures: !join [*projectpath, figures]
@@ -12,7 +12,8 @@ cosmology:
     Omega_m: 0.315
     Omega_b: 0.049
     h: 0.674
-    sigma8: 0.811
+    #sigma8: 0.811
+    A_s: 2.0989e-9
     n_s: 0.965
     w0: -1
     wa: 0
@@ -29,7 +30,7 @@ IA:
     eta_2:
 
 derivatives:
-    validation: [Omega_m, sigma8]
+    validation: [Omega_m, A_s]
     stencil_points: 5
     step_size:
         Omega_m: 0.01

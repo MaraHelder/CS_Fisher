@@ -38,14 +38,14 @@ def load_config(config_file):
 
     # Check for IA and baryons in the config file.
     if 'IA' not in config.keys():
-        config['IA'] = {'A_IA': None, 'a1h': None, 'a1': None, 'a2': None, 'ad': None}
+        config['IA'] = {'A_IA': None, 'a1h': None, 'a2': None, 'b_TA': None, 'eta': None, 'eta_2': None}
     if 'baryons' not in config.keys():
         config['baryons'] = {'logT_AGN': None}
     config.update(baryons_dictionary(config))
 
-    # Check for either halo model (a1h) or TATT model (a1, a2, ad) in the config file, not both.
-    if (config['IA']['a1h'] is not None) and (config['IA']['a1'] is not None or config['IA']['a2'] is not None or config['IA']['ad'] is not None):
-        raise ValueError('Cannot pass both halo model (a1h) and TATT model (a1, a2, ad). '
+    # Check for either halo model (a1h) or TATT model (A_IA, a2, b_TA) in the config file, not both.
+    if (config['IA']['a1h'] is not None) and (config['IA']['a2'] is not None or config['IA']['b_TA'] is not None):
+        raise ValueError('Cannot pass both halo model (a1h) and TATT model (A_IA, a2, b_TA). '
                          'Set one to None.')
 
     # Add redshift information from SRD (Y1 and Y10)
