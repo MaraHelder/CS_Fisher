@@ -12,7 +12,8 @@ cosmology:
     Omega_m: 0.315
     Omega_b: 0.049
     h: 0.674
-    sigma8: 0.811
+    #sigma8: 0.811
+    A_s: 2.0989e-9
     n_s: 0.965
     w0: -1
     wa: 0
@@ -23,13 +24,13 @@ baryons:
 IA:
     A_IA: 1
     a1h: 0.000675
-    a1:
     a2:
-    ad:
+    b_TA:
     eta:
+    eta_2:
 
 derivatives:
-    validation: [Omega_m, sigma8]
+    validation: [Omega_m, A_s]
     stencil_points: 5
     step_size:
         Omega_m: 0.01

@@ -23,10 +23,10 @@ baryons:
 IA:
     A_IA: 1.0
     a1h:
-    a1:
     a2:
-    ad:
+    b_TA:
     eta:
+    eta_2:
 
 derivatives:
     validation: [w0, wa]

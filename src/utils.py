@@ -24,14 +24,14 @@ def names_to_latex(parameter_name, dollar_signs=True):
         latex_name = r'A_\mathrm{IA}'
     elif parameter_name == 'eta':
         latex_name = r'\eta'
+    elif parameter_name == 'eta_2':
+        latex_name = r'\eta_2'
     elif parameter_name == 'a1h':
         latex_name = r'a_\mathrm{1h}'
-    elif parameter_name == 'a1':
-        latex_name = r'a_\mathrm{1}'
     elif parameter_name == 'a2':
         latex_name = r'a_\mathrm{2}' 
-    elif parameter_name == 'ad':
-        latex_name = r'a_\mathrm{d}' 
+    elif parameter_name == 'b_TA':
+        latex_name = r'b_\mathrm{TA}' 
     elif parameter_name == 'logT_AGN':
         latex_name = r'\log T_\mathrm{AGN}'
 
@@ -91,28 +91,34 @@ def sigma8_derivative(cosmo_dict, parameter, shift, n_points):
     return dsigma8
 
 def get_Pk_of_k_a_IA(cosmo: ccl.Cosmology, a1h: float,
-                     A_IA: float, a_1: float, a_2: float, a_d: float, z: np.ndarray,
+                     A_IA: float, a_2: float, b_TA: float, eta: float, eta_2: float, z: np.ndarray, z0 :float = 0.62,
                      k_arr: np.ndarray = np.geomspace(1E-3, 1e3, 128), a_arr: np.ndarray = np.linspace(0.1, 1, 32)) \
-        -> tuple[ccl.pk2d.Pk2D, ccl.pk2d.Pk2D]:
+        -> tuple:
     """
     Computes the intrinsic alignment power spectra P(k,a) for the GI and II terms using the halo model or TATT model. If a1h is not None, the halo model is used.
 
     Args:
         cosmo (object): A CCL cosmology object.
         a1h (float): Value of the 1-halo term amplitude.
-        A_IA (float): Value of the intrinsic alignment amplitude.
-        a_1 (float): Value of the first alignment bias.
+        A_IA (float): Value of the intrinsic alignment amplitude (also used in NLA model).
         a_2 (float): Value of the second alignment bias.
-        a_d (float): Value of the overdensity alignment bias.
+        b_TA (float): Value of the tidal alignment bias.
+        eta (float): Value of the eta parameter, redshift evolution of the IA amplitude.
+        eta_2 (float): Value of the eta_2 parameter, redshift evolution of the second alignment bias.
         z (np.ndarray): An array of redshifts at which to compute the power spectra.
+        z0 (float): The pivot redshift for the power-law scaling.
         k_arr (np.ndarray): An array of wavenumbers (in units of 1/Mpc) at which to compute the power spectra.
         a_arr (np.ndarray): An array of scale factors at which to compute the power spectra.
 
     Returns:
         p_of_k_a (tuple): A tuple containing the P(k,a) for the GI and II term (ccl.pk2d.Pk2D objects) in that order.
     """
-    if a1h is None and (a_1 is not None or a_2 is not None or a_d is not None):
-        c_1,c_d,c_2 = pt.translate_IA_norm(cosmo, z=z, a1=a_1, a1delta=a_d, a2=a_2, Om_m2_for_c2 = False)
+    if a1h is None and (A_IA is not None or a_2 is not None or b_TA is not None):
+        c_1,c_d,c_2 = pt.translate_IA_norm(cosmo, z=z, a1=A_IA, a1delta=b_TA*A_IA, a2=a_2, Om_m2_for_c2 = False)
+        if eta is not None:
+            c_1 *= ((1+z)/(1+z0))**eta
+        if eta_2 is not None:
+            c_2 *= ((1+z)/(1+z0))**eta_2
         ptt_i = pt.PTIntrinsicAlignmentTracer(c1=(z,c_1), c2=(z,c_2), cdelta=(z,c_d))
         ptc = pt.EulerianPTCalculator(with_NC=False, with_IA=True, # TODO: with_NC?
                       log10k_min=np.log10(k_arr.min()), log10k_max=np.log10(k_arr.max()), nk_per_decade=20) # TODO:nk_per_decade?
@@ -121,7 +127,7 @@ def get_Pk_of_k_a_IA(cosmo: ccl.Cosmology, a1h: float,
         pk_II = ptc.get_biased_pk2d(ptt_i, tracer2=ptt_i)
         pk_GI = ptc.get_biased_pk2d(pt.PTMatterTracer(), tracer2=ptt_i)
         return [pk_II, pk_GI]
-    elif a1h is not None and a_1 is None and a_2 is None and a_d is None:
+    elif a1h is not None and a_2 is None and b_TA is None:
         lk_arr = np.log(k_arr)
 
         # the halo mass definition
@@ -141,6 +147,8 @@ def get_Pk_of_k_a_IA(cosmo: ccl.Cosmology, a1h: float,
         
         C1rhocrit = 5e-14*ccl.physical_constants.RHO_CRITICAL
         C = A_IA * C1rhocrit * cosmo['Omega_m'] / cosmo.growth_factor(a_arr)
+        if eta is not None:
+            C *= ((1+z_arr)/(1+z0))**eta
 
         pk_II_1h_ss = ccl.halos.halomod_Pk2D(cosmo, hmc, sat_gamma_HOD, get_2h = False, a_arr=a_arr, lk_arr=lk_arr)
         pk_GI_1h_s = ccl.halos.halomod_Pk2D(cosmo, hmc, NFW, prof2 = sat_gamma_HOD, get_2h = False, a_arr=a_arr, lk_arr=lk_arr)

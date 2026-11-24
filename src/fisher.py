@@ -9,7 +9,7 @@ from .utils import sigma8_derivative, names_to_latex, get_Pk_of_k_a_IA
 def get_Cell_data_vector(cosmo: ccl.Cosmology,
                          z: np.ndarray, dndz: np.ndarray,
                          A_IA: float, eta: float = None, z0 :float = 0.62,
-                         ell: np.ndarray = None, p_of_k_a : dict = None) \
+                         ell: np.ndarray = None, p_of_k_a : tuple = None) \
         -> dict:
     """
     Computes the cosmic shear C_ell's. Assumes constant A_IA.
@@ -55,7 +55,7 @@ def get_Cell_data_vector(cosmo: ccl.Cosmology,
             else:
                 wl_tracer_z1 = ccl.WeakLensingTracer(cosmo,dndz = (z, dndz_use[z1]))
                 wl_tracer_z2 = ccl.WeakLensingTracer(cosmo,dndz = (z, dndz_use[z2]))
-                ia_tracer_z1 = ccl.WeakLensingTracer(cosmo,dndz = (z, dndz_use[z1]), has_shear=False, ia_bias = ia_bias, use_A_ia=False)
+                ia_tracer_z1 = ccl.WeakLensingTracer(cosmo,dndz = (z, dndz_use[z1]), has_shear=False, ia_bias = ia_bias, use_A_ia=False) # TODO: check if ia_bias is correct here, or if it should be None.
                 ia_tracer_z2 = ccl.WeakLensingTracer(cosmo,dndz = (z, dndz_use[z2]), has_shear=False, ia_bias = ia_bias, use_A_ia=False)
 
                 c_ell_GG = ccl.angular_cl(cosmo, wl_tracer_z1, wl_tracer_z2, ell)
@@ -249,10 +249,10 @@ def compute_d_Cells(n_points: int,
             # Define the IA input parameters
             A_IA_in = param_in[np.isin(params_name, 'A_IA')][0]
             eta_in = param_in[np.isin(params_name, 'eta')][0]
+            eta_2_in = param_in[np.isin(params_name, 'eta_2')][0]
             a1h_in = param_in[np.isin(params_name, 'a1h')][0]
-            a1_in = param_in[np.isin(params_name, 'a1')][0]
             a2_in = param_in[np.isin(params_name, 'a2')][0]
-            ad_in = param_in[np.isin(params_name, 'ad')][0]
+            b_TA_in = param_in[np.isin(params_name, 'b_TA')][0]
 
             # Define the baryon feedback parameters
             try:
@@ -278,10 +278,10 @@ def compute_d_Cells(n_points: int,
                                      matter_power_spectrum='camb',
                                      extra_parameters={"camb": {"dark_energy_model": "ppf"} | baryons_dict})
 
-            if (a1h_in is None) and (a1_in is None) and (a2_in is None) and (ad_in is None):
+            if (a1h_in is None) and (a2_in is None) and (b_TA_in is None):
                 C_ells = get_Cell_data_vector(cosmo_in, z, dndz_in, A_IA_in, eta_in, ell=ell)
             else:
-                pk_of_k_a = get_Pk_of_k_a_IA(cosmo_in, a1h=a1h_in, A_IA=A_IA_in, a_1=a1_in, a_2=a2_in, a_d=ad_in, z=z) # TODO: add k_arr and a_arr as input parameters to this function.
+                pk_of_k_a = get_Pk_of_k_a_IA(cosmo_in, a1h=a1h_in, A_IA=A_IA_in, a_2=a2_in, b_TA=b_TA_in, eta=eta_in, eta_2=eta_2_in, z=z) # TODO: Add k_arr, a_arr and z0 as input parameters to this function
                 C_ells = get_Cell_data_vector(cosmo_in, z, dndz_in, A_IA_in, eta_in, ell=ell, p_of_k_a=pk_of_k_a)
             d_Cells[:, di, :] += coeff[n] * np.array(list(C_ells.values())).T / params_shift[pi]
         di += 1
@@ -560,7 +560,7 @@ class fisher_matrix(object):
     def draw_covariance_ellipse(self, ax: object, parameters: iter, mu: iter = None,
                                 CL: float = 0.95, color: str = None, fill: bool = True,
                                 **kwargs)\
-            -> (object, tuple, tuple, tuple, tuple):
+            -> (object, tuple, tuple, tuple, tuple): # type: ignore
         """
         Draws an ellipse with a marginalised covariance matrix computed over
         the parameters provided.
