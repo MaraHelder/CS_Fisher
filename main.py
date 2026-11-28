@@ -4,6 +4,7 @@ from itertools import pairwise
 from src import load_config, fisher_matrix, redshift_distributions, IO, names_to_latex
 
 
+# TODO: Add setup.py and make package.
 def main(config):
     print(f'Running fisher analysis for {config.name}.')
 
